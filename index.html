@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Arrival Card QR Decoder & Editor (Fixed)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1rem;
+    }
+
+    h3 {
+      margin-top: 2em;
+      margin-bottom: 0.5em;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0;
+    }
+
+    input:not([type="radio"]),
+    select,
+    textarea {
+      width: 300px;
+      padding: 4px;
+    }
+
+    small {
+      display: block;
+      margin-top: -6px;
+      margin-bottom: 6px;
+      color: #337ab7;
+      font-size: 0.85em;
+      font-style: italic;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .json-key {
+      color: #888;
+      font-size: 0.9em;
+      margin-left: 8px;
+    }
+
+    .conditional {
+      display: none;
+      margin-left: 1rem;
+    }
+
+    .required::before {
+      content: "* ";
+      color: red;
+    }
+
+    .radio-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em 2em;
+      margin-left: 1em;
+    }
+
+    .radio-inline label {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 2px 6px;
+      background-color: #f9f9f9;
+    }
+
+    input[type="radio"] {
+      width: auto;
+      height: auto;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    input:required:invalid {
+      border: 1px solid #d9534f;
+    }
+
+    input:required:valid {
+      border: 1px solid #5cb85c;
+    }
+
+    input,
+    select,
+    label {
+      transition: background-color 0.8s ease;
+      /* Smooth transition for background color */
+    }
+
+    .highlight {
+      background-color: #d8f5d8;
+      /* Lighter green for a gentler effect */
+    }
+
+    /* Add this CSS for horizontal language selector */
+    .language-selector {
+      display: flex;
+      gap: 1rem;
+      /* Add spacing between the radio buttons */
+      margin-bottom: 1rem;
+      /* Add some space below the language selector */
+    }
+
+    .language-selector label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      /* Add spacing between the radio button and label text */
+    }
+  </style>
+  <script>
+    function toggleConditional(key) {
+      const show = (id, visible) => {
+        const el = document.getElementById(`cond-${id}`);
+        if (el) el.style.display = visible ? 'block' : 'none';
+      };
+      let value;
+      const radios = document.querySelectorAll(`[name='${key}']`);
+      if (radios.length > 0 && radios[0].type === "radio") {
+        const selected = [...radios].find(r => r.checked);
+        value = selected?.value;
+      } else {
+        value = document.querySelector(`[name='${key}']`)?.value;
+      }
+      if (key === 'visaFree') show('visaFree', value === '0');
+      if (key === 'check1') show('check1', value === '1');
+      if (key === 'check2') show('check2', value === '1');
+    }
+
+    function toggleVisaNo() {
+      const visaFreeValue = document.querySelector('input[name="visaFree"]:checked')?.value;
+      const visaNoContainer = document.getElementById("visaNoContainer");
+      if (visaFreeValue === "0") {
+        visaNoContainer.style.display = "block"; // Show Visa No. field
+      } else {
+        visaNoContainer.style.display = "none"; // Hide Visa No. field
+      }
+    }
+
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      const form = document.getElementById('arrivalForm');
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+      }
+      encodeAndGenerateQR();
+      return false;
+    }
+
+    function decodeAndFill() {
+      let debugEl = document.getElementById("debugJson");
+      if (!debugEl) {
+        debugEl = document.createElement("pre");
+        debugEl.id = "debugJson";
+        document.body.appendChild(debugEl);
+      }
+      const input = document.getElementById("inputBase64").value.trim();
+      if (!input) return alert("Please enter a base64 string.");
+      try {
+        const key = CryptoJS.enc.Utf8.parse("sdgdfjytyjkueesh");
+        const iv = CryptoJS.enc.Utf8.parse("fhgtdytestgrjrtd");
+        const encryptedHex = CryptoJS.enc.Base64.parse(input);
+        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: encryptedHex });
+        const decrypted = CryptoJS.AES.decrypt(cipherParams, key, {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
+        }).toString(CryptoJS.enc.Utf8);
+        const data = JSON.parse(decrypted);
+        debugEl.textContent = JSON.stringify(data, null, 2);
+
+        // Iterate over the keys in the decoded data
+        Object.keys(data).forEach(key => {
+          const field = document.querySelector(`[name="${key}"]`);
+          if (!field) return;
+
+          if (field.type === "radio") {
+            const radio = document.querySelector(`[name="${key}"][value="${data[key]}"]`);
+            if (radio) {
+              radio.checked = true;
+              radio.parentElement.classList.add("highlight");
+              setTimeout(() => { radio.parentElement.classList.remove("highlight"); }, 1500);
+            }
+          } else {
+            field.value = data[key];
+            field.classList.add("highlight");
+            setTimeout(() => { field.classList.remove("highlight"); }, 1500);
+          }
+          toggleConditional(key);
+        });
+
+        // Handle visaFree logic based on qzhm
+        const visaNo = data.qzhm; // Check if qzhm (Visa No.) is provided
+        const visaFreeValue = visaNo ? "0" : "1"; // "0" for No, "1" for Yes
+        const visaFreeRadio = document.querySelector(`[name="visaFree"][value="${visaFreeValue}"]`);
+        if (visaFreeRadio) {
+          visaFreeRadio.checked = true;
+          toggleVisaNo(); // Ensure the Visa No. field visibility is updated
+        }
+      } catch (err) {
+        debugEl.textContent = "⚠ Failed to decode or parse Base64 string.";
+        alert("Failed to decode or parse base64 string.");
+      }
+    }
+
+    function encodeAndGenerateQR() {
+      const formData = {};
+      document.querySelectorAll("#arrivalForm input, #arrivalForm select, #arrivalForm textarea").forEach(el => {
+        if ((el.type === "radio" || el.type === "checkbox") && !el.checked) return;
+        formData[el.name] = el.value;
+      });
+
+      // Add missing fields
+      formData["t"] = Date.now(); // Epoch time in milliseconds
+      formData["brdhhm"] = document.querySelector('[name="brdhhm"]')?.value || ""; // Add personal phone number
+
+      // Convert fields to correct data types
+      formData["check1"] = parseInt(formData["check1"], 10);
+      formData["check2"] = parseInt(formData["check2"], 10);
+      formData["check3"] = parseInt(formData["check3"], 10);
+      formData["lb"] = parseInt(formData["lb"], 10);
+
+      // Preserve field order
+      const orderedKeys = [
+        "x", "m", "xb", "gj", "csrq", "zwxm", "lxzjhm", "check1", "qzhm", "ddhb", "brdhhm",
+        "zhjt", "zhzz", "zhzzcs", "rjsy", "check2", "cjsj", "cjhb", "check3", "yqrmc",
+        "yqrlxfs", "cqgj", "lb", "t"
+      ];
+      const orderedFormData = {};
+      orderedKeys.forEach(key => {
+        if (formData[key] !== undefined) {
+          orderedFormData[key] = formData[key];
+        }
+      });
+
+      // Encode JSON
+      const jsonString = JSON.stringify(orderedFormData);
+      const key = CryptoJS.enc.Utf8.parse("sdgdfjytyjkueesh");
+      const iv = CryptoJS.enc.Utf8.parse("fhgtdytestgrjrtd");
+      const encrypted = CryptoJS.AES.encrypt(
+        CryptoJS.enc.Utf8.parse(jsonString),
+        key,
+        {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
+        }
+      ).ciphertext.toString(CryptoJS.enc.Base64);
+
+      // Display Base64 and QR Code
+      document.getElementById("outputBase64").textContent = encrypted;
+      const qrContainer = document.getElementById("qrcode") || createQrBox();
+      qrContainer.innerHTML = "";
+      new QRCode(qrContainer, {
+        text: encrypted,
+        width: 256,
+        height: 256
+      });
+    }
+
+    function createQrBox() {
+      const div = document.createElement("div");
+      div.id = "qrcode";
+      document.body.appendChild(div);
+      return div;
+    }
+  </script>
+</head>
+
+<body>
+  <h2>🛂 Arrival Card QR Decoder & Editor</h2>
+  <label for="inputBase64">Paste Encrypted Base64 String:</label>
+  <textarea id="inputBase64" rows="5" cols="80"></textarea><br>
+  <button onclick="decodeAndFill()">🔓 Decode & Fill Form</button>
+
+  <h3>Decoded JSON Debug Preview:</h3>
+  <pre id="debugJson"></pre>
+
+  <hr>
+  <form id="arrivalForm" onsubmit="return handleFormSubmit(event);">
+    <!-- Language Selection -->
+    <div class="language-selector">
+      <label><input type="radio" name="language" value="en" checked onclick="setLanguage('en')"> English</label>
+      <label><input type="radio" name="language" value="ja" onclick="setLanguage('ja')"> 日本語</label>
+      <label><input type="radio" name="language" value="ko" onclick="setLanguage('ko')"> 한국어</label>
+      <label><input type="radio" name="language" value="ru" onclick="setLanguage('ru')"> Русский</label>
+      <label><input type="radio" name="language" value="fr" onclick="setLanguage('fr')"> Français</label>
+      <label><input type="radio" name="language" value="es" onclick="setLanguage('es')"> Español</label>
+    </div>
+
+    <h3>🧑 Personal Information</h3>
+    <small>Please fill in your personal details as per your passport.</small>
+    <label class="required">姓 / <span data-translate="surname">Surname</span> (x): <input name="x" required></label>
+    <label class="required">名 / <span data-translate="givenNames">Given Names</span> (m): <input name="m"
+        required></label>
+    <label>中文名 / <span data-translate="chineseName">Chinese Name</span> (zwxm): <input name="zwxm"></label>
+    <label class="required">性别 / <span data-translate="gender">Gender</span> (xb):</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="xb" value="Male"> <span data-translate="male">Male</span></label>
+      <label><input type="radio" name="xb" value="Female"> <span data-translate="female">Female</span></label>
+    </div>
+    <label class="required">国籍 / <span data-translate="nationality">Nationality</span> (gj): <input name="gj"
+        required></label>
+    <label class="required">出生日期 / <span data-translate="dob">Date of Birth</span> (csrq): <input name="csrq"
+        type="date" required></label>
+    <label>个人电话号码 / <span data-translate="personalPhone">Personal Phone Number</span> (brdhhm):
+      <input name="brdhhm" type="tel" placeholder="Enter your phone number">
+    </label>
+
+    <!-- 🛂 Travel Document Information -->
+    <h3>🛂 Travel Document Information</h3>
+    <small>Provide details of your travel document and visa status.</small>
+    <label class="required">护照号码 / <span data-translate="passportNo">Passport No</span> (lxzjhm): <input name="lxzjhm"
+        required></label>
+
+    <!-- Visa-Free Radio Buttons -->
+    <label class="required">免签 / <span data-translate="visaFree">Visa-Free</span>:</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="visaFree" value="1" onclick="toggleVisaNo()"> <span
+          data-translate="yes">Yes</span></label>
+      <label><input type="radio" name="visaFree" value="0" onclick="toggleVisaNo()"> <span
+          data-translate="no">No</span></label>
+    </div>
+
+    <!-- Visa No. Field -->
+    <div id="visaNoContainer" style="display: none;">
+      <label>签证号码 / <span data-translate="visaNo">Visa No</span> (qzhm): <input name="qzhm"></label>
+    </div>
+
+    <!-- 🚪 Departure Information -->
+    <h3>🚪 Departure Information</h3>
+    <small>Provide details about your departure from China, including ticket status and transport mode.</small>
+    <label class="required">是否已预订离境票 / <span data-translate="departureTicket">Departure Ticket Booked</span>
+      (check1):</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="check1" value="1"> <span data-translate="bookedTheTicketYes">Yes</span></label>
+      <label><input type="radio" name="check1" value="0"> <span data-translate="bookedTheTicketNo">No</span></label>
+    </div>
+    <label>出境时间 / <span data-translate="dateOfDeparture">Date of departure</span> (cjsj): <input name="cjsj"
+        type="date"></label>
+    <label>出境航班/车次/船名 / <span data-translate="departureFlight">Departure Flight No./Train No./Vessel Name</span> (cjhb):
+      <input name="cjhb"></label>
+
+    <!-- 🛬 Arrival Information -->
+    <h3>🛬 Arrival Information</h3>
+    <small>Enter details about your arrival in China, including transport mode and arrival location.</small>
+    <label>抵达航班 / <span data-translate="arrivalFlight">Arrival Flight</span> (ddhb): <input name="ddhb"></label>
+    <label>在华经停和目的城市 / <span data-translate="cities">Cities intended to visit in China</span> (zhjt): <input
+        name="zhjt"></label>
+    <label class="required">在华详细地址或旅馆名称 / <span data-translate="detailedAddress">Detailed address or hotel name while in
+        China</span> (zhzz): <input name="zhzz" required></label>
+    <label class="required">市 / <span data-translate="city">City</span> (zhzzcs): <input name="zhzzcs" required></label>
+
+    <!-- 🎯 Purpose of Trip -->
+    <h3>🎯 Purpose of Trip</h3>
+    <small>Please select your purpose of travel as shown on your visa or ticket.</small>
+    <label>入境事由 / <span data-translate="purpose">Purpose of this trip</span> (rjsy):</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="rjsy" value="外交/公务"> 外交/公務 / <span
+          data-translate="diplomacy">Diplomacy/Official</span></label>
+      <label><input type="radio" name="rjsy" value="访问"> 访问 / <span
+          data-translate="visiting">Visiting/Business</span></label>
+      <label><input type="radio" name="rjsy" value="永久居留"> 永久居留 / <span data-translate="permanentResidence">Permanent
+          Residence</span></label>
+      <label><input type="radio" name="rjsy" value="就业"> 就业 / <span
+          data-translate="employment">Employment</span></label>
+      <label><input type="radio" name="rjsy" value="学习"> 学习 / <span data-translate="study">Study</span></label>
+      <label><input type="radio" name="rjsy" value="旅游"> 旅游 / <span data-translate="tourism">Tourism</span></label>
+      <label><input type="radio" name="rjsy" value="探亲"> 探亲 / <span data-translate="visitingRelatives">Visiting
+          Relatives</span></label>
+      <label><input type="radio" name="rjsy" value="过境"> 过境 / <span data-translate="transit">Transit</span></label>
+      <label><input type="radio" name="rjsy" value="其他"> 其他 / <span data-translate="others">Others</span></label>
+    </div>
+
+    <!-- 👥 Contact in China -->
+    <h3>👥 Contact in China</h3>
+    <small>Provide details of your contact person in China, if applicable.</small>
+    <label class="required">是否有中国联系人 / <span data-translate="contactsInChina">Have Contact in China</span>
+      (check2):</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="check2" value="1"> 是 / <span
+          data-translate="contactsInChinaYes">Yes</span></label>
+      <label><input type="radio" name="check2" value="0"> 否 / <span data-translate="contactsInChinaNo">No</span></label>
+    </div>
+    <label>联系人姓名 / <span data-translate="nameOfChineseInvitingUnit">Name of Chinese Reception Unit or Contact</span>
+      (yqrmc): <input name="yqrmc"></label>
+    <label>联系人地址 / <span data-translate="addressOfChineseInvitingUnit">Address of Contact of the Chinese Contact</span>
+      (yqrlxfs): <input name="yqrlxfs"></label>
+    <label class="required">接待单位确认 / <span data-translate="receptionConfirmed">Reception Unit Confirmed</span>
+      (check3):</label>
+    <div class="radio-inline">
+      <label><input type="radio" name="check3" value="1"> 是 / <span
+          data-translate="bookedTheTicketYes">Yes</span></label>
+      <label><input type="radio" name="check3" value="0"> 否 / <span data-translate="bookedTheTicketNo">No</span></label>
+    </div>
+
+    <!-- 🌎 Travel History -->
+    <h3>🌎 Travel History</h3>
+    <small>List the countries you have visited recently.</small>
+    <label>您过去两年曾去过哪些国家（地区） / <span data-translate="countriesVisited">Countries Visited</span> (cqgj):</label>
+    <div>
+      <textarea name="cqgj" rows="3" cols="40"></textarea>
+    </div>
+
+    <input type="hidden" name="lb" value="1">
+  </form>
+
+  <br>
+  <button onclick="encodeAndGenerateQR()">🔐 Encode to Base64 + QR</button>
+  <h3>Base64 Output:</h3>
+  <pre id="outputBase64"></pre>
+  <div id="qrcode"></div>
+
+  <script>
+    const translations = {
+      en: {
+        detailedAddress: "Detailed address or hotel name while in China",
+        departureFlight: "Departure Flight No./Train No./Vessel Name",
+        dateOfDeparture: "Date of departure",
+        cities: "Cities intended to visit in China",
+        surname: "Surname",
+        givenNames: "Given names",
+        gender: "Gender",
+        male: "Male",
+        female: "Female",
+        nationality: "Nationality",
+        dob: "Date of birth",
+        chineseName: "Chinese name (if applicable)",
+        passportNo: "Passport No.",
+        visa: "Visa",
+        visaFree: "Visa-Free",
+        visaFreeYes: "Yes",
+        visaFreeNo: "No",
+        visaNo: "Visa No.",
+        arrivalFlight: "Arrival Flight No. / Train No./ Vessel Name",
+        personalPhone: "Personal phone No.",
+        residence: "Residence Information in China",
+        city: "City",
+        purpose: "Purpose of this trip",
+        diplomacy: "Diplomacy/Official",
+        visiting: "Visiting/Business",
+        permanentResidence: "Permanent Residence",
+        employment: "Employment",
+        study: "Study",
+        tourism: "Tourism",
+        visitingRelatives: "Visiting Relatives",
+        transit: "Transit",
+        others: "Others",
+        questions: "Questions",
+        bookedTheTicket: "Have you booked the ticket for your departure? If yes, please write down your departure information.",
+        bookedTheTicketYes: "Yes",
+        bookedTheTicketNo: "No",
+        contactsInChina: "Do you have any reception unit or contacts in China? If yes, please write down the contact information.",
+        contactsInChinaYes: "Yes",
+        contactsInChinaNo: "No",
+        nameOfChineseInvitingUnit: "Name of Chinese inviting unit or inviter",
+        addressOfChineseInvitingUnit: "Address or contact phone number of the Chinese inviting unit or person",
+        countriesVisited: "Which countries and regions have you ever been to in the past two years?",
+        receptionConfirmed: "Reception Unit Confirmed",
+      },
+      ja: {
+        detailedAddress: "中国の住所またはホテルの名前",
+        departureFlight: "出発便名/列車番号/船名",
+        dateOfDeparture: "出国時間",
+        cities: "中国の寄港地および目的地都市",
+        surname: "姓",
+        givenNames: "名",
+        gender: "性別",
+        male: "男",
+        female: "女",
+        nationality: "国籍",
+        dob: "生年月日",
+        chineseName: "中国語の名前（中国語でご記入ください）",
+        passportNo: "パスポート番号",
+        visa: "ビザ情報",
+        visaFree: "ビザ免除",
+        visaFreeYes: "はい",
+        visaFreeNo: "いいえ",
+        visaNo: "ビザ番号",
+        arrivalFlight: "到着便名/列車番号/船名",
+        personalPhone: "本人の電話番号",
+        residence: "在中国居住情報",
+        city: "市",
+        purpose: "入国事由",
+        diplomacy: "外交/公務",
+        visiting: "訪問/ビジネス",
+        permanentResidence: "定住",
+        employment: "就労",
+        study: "学習",
+        tourism: "観光",
+        visitingRelatives: "親戚回り",
+        transit: "トランジット",
+        others: "そのほか",
+        questions: "質問事項",
+        bookedTheTicket: "往路の旅程は確定していますか？「はい」の場合、スケジュールを具体的に教えてください.",
+        bookedTheTicketYes: "はい",
+        bookedTheTicketNo: "いいえ",
+        contactsInChina: "中国側の招待機関または招待者がいらっしゃいますか？「いる」場合は、連絡先をご記入ください.",
+        contactsInChinaYes: "はい",
+        contactsInChinaNo: "いいえ",
+        nameOfChineseInvitingUnit: "中国側招待機関または招待者名",
+        addressOfChineseInvitingUnit: "中国側招待機関または招待者の住所または連絡先",
+        countriesVisited: "過去2年間にどの国（地域）を行かれましたか?",
+        receptionConfirmed: "接待単位の確認",
+      },
+      ko: {
+        detailedAddress: "중국에서의 주소 또는 호텔 이름",
+        departureFlight: "출국 항공편/차수/선명",
+        dateOfDeparture: "출국시간",
+        cities: "중화인민공화국의 경제 정지 및 목적 도시",
+        surname: "성",
+        givenNames: "명",
+        gender: "성별",
+        male: "남",
+        female: "녀",
+        nationality: "국적",
+        dob: "생년월일",
+        chineseName: "중문이름(중국어로 작성해주세요)",
+        passportNo: "여권번호",
+        visa: "비자 정보",
+        visaFree: "비자면제",
+        visaFreeYes: "예",
+        visaFreeNo: "아니요",
+        visaNo: "비자번호",
+        arrivalFlight: "도착편/차수/선명",
+        personalPhone: "본인 전화번호",
+        residence: "중국 거주 정보",
+        city: "시",
+        purpose: "입국 사유",
+        diplomacy: "외교/공무",
+        visiting: "방문/비즈니스",
+        permanentResidence: "거주지",
+        employment: "업무",
+        study: "공부",
+        tourism: "여행",
+        visitingRelatives: "친척 방문",
+        transit: "환승",
+        others: "기타",
+        questions: "질문사항",
+        bookedTheTicket: "출국 일정을 잘 정하셨습니까?만약 그렇다면, 구체적으로 안배를 작성해주세요.",
+        bookedTheTicketYes: "예",
+        bookedTheTicketNo: "아니요",
+        contactsInChina: "당신은 중국측 초청 기관이나 초청인이 있습니까?있으시면 연락처를 작성해주세요.",
+        contactsInChinaYes: "예",
+        contactsInChinaNo: "아니요",
+        nameOfChineseInvitingUnit: "중국 측 초청 단위 또는 초청인 명칭",
+        addressOfChineseInvitingUnit: "중국 측 초청단위 또는 초청인 주소 또는 연락처",
+        countriesVisited: "지난 2년 동안 어느 나라를 다녀왔습니까?",
+        receptionConfirmed: "접대 단위 확인",
+      },
+      ru: {
+        detailedAddress: "Адрес места проживания или название отеля",
+        departureFlight: "Номер рейса/поезда/судна на выезд",
+        dateOfDeparture: "Дата выезда",
+        cities: "Города в Китае, планируемые к посещению",
+        surname: "Фамилия",
+        givenNames: "Имя",
+        gender: "Пол",
+        male: "Муж.",
+        female: "Жен.",
+        nationality: "Гражданство",
+        dob: "Дата рождения",
+        chineseName: "Китайское имя （на китайском языке）",
+        passportNo: "Номер паспорта",
+        visa: "Информация о визе",
+        visaFree: "Безвизовый въезд",
+        visaFreeYes: "Да",
+        visaFreeNo: "Нет",
+        visaNo: "Номер визы",
+        arrivalFlight: "Номер авиарейса/ Номер поезда/ Название судна",
+        personalPhone: "Номер контактного телефона",
+        residence: "Адрес в Китае",
+        city: "Город",
+        purpose: "Цель визита",
+        diplomacy: "Дипломатический/Служебный",
+        visiting: "Деловой/Коммерческий",
+        permanentResidence: "Проживание",
+        employment: "Работа",
+        study: "Учеба",
+        tourism: "Туризм",
+        visitingRelatives: "Навестить родных",
+        transit: "Транзит",
+        others: "Иной",
+        questions: "Вопросы",
+        bookedTheTicket: "Вы забронировали обратный билет? Если да, пожалуйста, заполните.",
+        bookedTheTicketYes: "Да",
+        bookedTheTicketNo: "Нет",
+        contactsInChina: "Есть ли у вас китайская приглашающая сторона? Если да, пожалуйста, укажите её контактную информацию.",
+        contactsInChinaYes: "Да",
+        contactsInChinaNo: "Нет",
+        nameOfChineseInvitingUnit: "Фамилия, имя или наименование",
+        addressOfChineseInvitingUnit: "Адрес и номер контактного телефона",
+        countriesVisited: "В каких странах (регионах) вы побывали за последние два года?"
+      },
+      fr: {
+        detailedAddress: "Adresse complète ou nom de l'hôtel en Chine",
+        departureFlight: "Numéro de vol/train/nom du navire pour le départ",
+        dateOfDeparture: "Date de départ",
+        cities: "Villes à visiter en Chine",
+        surname: "Nom de famille",
+        givenNames: "Prénom",
+        gender: "Sexe",
+        male: "Homme",
+        female: "Femme",
+        nationality: "Nationalité",
+        dob: "Date de naissance",
+        chineseName: "Nom chinois (remplissez en chinois, SVP)",
+        passportNo: "Numéro de passport ou de document de voyage",
+        visa: "Informations du visa",
+        visaFree: "Exemption de visa",
+        visaFreeYes: "Oui",
+        visaFreeNo: "Non",
+        visaNo: "Numéro de visa",
+        arrivalFlight: "Numéro de vol/train/nom du navire",
+        personalPhone: "Numéro de téléphone",
+        residence: "Adresse en Chine",
+        city: "Ville",
+        purpose: "But de la visite",
+        diplomacy: "Diplomatie/Service",
+        visiting: "Visites d’affaires",
+        permanentResidence: "Résidence",
+        employment: "Travail",
+        study: "Étude",
+        tourism: "Vacances",
+        visitingRelatives: "Visite familiale",
+        transit: "Transit",
+        others: "Autres",
+        questions: "Questions",
+        bookedTheTicket: "Avez-vous réservé le billet pour votre départ? Si oui, veuillez indiquer vos coordonnées de départ",
+        bookedTheTicketYes: "Oui",
+        bookedTheTicketNo: "Non",
+        contactsInChina: "Avez-vous une réception ou des contacts en Chine ? Si oui, veuillez indiquer vos coordonnées.",
+        contactsInChinaYes: "Oui",
+        contactsInChinaNo: "Non",
+        nameOfChineseInvitingUnit: "Nom",
+        addressOfChineseInvitingUnit: "Adresse et numéro de téléphone",
+        countriesVisited: "Quels pays et régions avez-vous visités au cours des deux dernières années ?",
+        receptionConfirmed: "Unité de réception confirmée",
+      },
+      es: {
+        detailedAddress: "Domicilio en China o nombre del hotel",
+        departureFlight: "Número de vuelo/tren/barco de salida",
+        dateOfDeparture: "Fecha de salida",
+        cities: "Ciudad de estancia y de destino en China",
+        surname: "Apellido(s)",
+        givenNames: "Nombre",
+        gender: "Sexo",
+        male: "Masculino",
+        female: "Femenino",
+        nationality: "Nacionalidad",
+        dob: "Fecha de nacimiento",
+        chineseName: "Nombre chino (Escriba en chino por favor)",
+        passportNo: "Número de pasaporte o número de documentos de viaje",
+        visa: "información del visado",
+        visaFree: "Exención de visado",
+        visaFreeYes: "Sí",
+        visaFreeNo: "No",
+        visaNo: "Número del visado chino",
+        arrivalFlight: "Número de vuelo/tren/barco a la llegada",
+        personalPhone: "Número de teléfono personal",
+        residence: "información del domicilio en China",
+        city: "Ciudad",
+        purpose: "Tipo de viaje",
+        diplomacy: "Diplomacia/Servicio oficial",
+        visiting: "Visitas/Negocios",
+        permanentResidence: "Residencia",
+        employment: "Trabajo",
+        study: "Estudio",
+        tourism: "Turismo",
+        visitingRelatives: "Visita a familiares",
+        transit: "Tránsito",
+        others: "Otro",
+        questions: "Preguntas",
+        bookedTheTicket: "¿Ha reservado el vuelo de salida? Si lo ha tenido, escriba la información detallada, por favor.",
+        bookedTheTicketYes: "Sí",
+        bookedTheTicketNo: "No",
+        contactsInChina: "¿Tiene alguna institución, empresa o persona que le invite a China? Si lo tiene, escriba la información de contacto, por favor.",
+        contactsInChinaYes: "Sí",
+        contactsInChinaNo: "No",
+        nameOfChineseInvitingUnit: "Nombre",
+        addressOfChineseInvitingUnit: "Dirección y número de teléfono en contacto",
+        countriesVisited: "¿Qué países ha visitado en los últimos dos años?",
+        receptionConfirmed: "Unidad de recepción confirmada",
+      }
+    };
+
+    function setLanguage(lang) {
+      document.querySelectorAll("[data-translate]").forEach(el => {
+        const key = el.getAttribute("data-translate");
+        if (translations[lang] && translations[lang][key]) {
+          el.textContent = translations[lang][key];
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setLanguage('en'); // Default language
+    });
+  </script>
+</body>
+
+</html>
