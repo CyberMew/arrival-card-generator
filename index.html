@@ -208,7 +208,8 @@
       }
     }
 
-    async function encodeAndGenerateQR() {
+    // Reusable function to collect and process form data
+    function collectFormData() {
       const formData = {};
       document.querySelectorAll("#arrivalForm input, #arrivalForm select, #arrivalForm textarea").forEach(el => {
         if ((el.type === "radio" || el.type === "checkbox") && !el.checked) return;
@@ -238,28 +239,53 @@
         }
       });
 
-      // Encode JSON
-      const jsonString = JSON.stringify(orderedFormData);
+      return orderedFormData;
+    }
+
+    // Reusable function to encrypt data
+    async function encryptData(data) {
+      const jsonString = JSON.stringify(data);
       const key = "sdgdfjytyjkueesh";
       const iv = "fhgtdytestgrjrtd";
-      const encrypted = await encryptAES(jsonString, key, iv);
+      return await encryptAES(jsonString, key, iv);
+    }
 
-      // Display Base64 and QR Code
-      document.getElementById("outputBase64").textContent = encrypted;
-      const qrContainer = document.getElementById("qrcode") || createQrBox();
-      qrContainer.innerHTML = "";
+    // Reusable function for QR code generation
+    async function generateQRCode(data, qrSize = 256, errorCorrection = "M") {
+      const qrContainer = document.getElementById("qrcode");
+      qrContainer.innerHTML = ""; // Clear previous QR code
+
       new QRCode(qrContainer, {
-        text: encrypted,
-        width: 256,
-        height: 256
+        text: data,
+        width: qrSize,
+        height: qrSize,
+        correctLevel: QRCode.CorrectLevel[errorCorrection]
       });
     }
 
-    function createQrBox() {
-      const div = document.createElement("div");
-      div.id = "qrcode";
-      document.body.appendChild(div);
-      return div;
+    // Function to handle "Encode to Base64 + QR" button
+    async function encodeAndGenerateQR() {
+      const formData = collectFormData();
+      const encrypted = await encryptData(formData);
+
+      // Display Base64 string
+      document.getElementById("outputBase64").textContent = encrypted;
+
+      // Generate QR code
+      const qrSize = parseInt(document.getElementById("qrSize").value, 10);
+      const errorCorrection = document.getElementById("errorCorrection").value;
+      await generateQRCode(encrypted, qrSize, errorCorrection);
+    }
+
+    // Function to handle "Generate QR Code" button
+    async function handleGenerateQRCode() {
+      const formData = collectFormData();
+      const encrypted = await encryptData(formData);
+
+      // Generate QR code
+      const qrSize = parseInt(document.getElementById("qrSize").value, 10);
+      const errorCorrection = document.getElementById("errorCorrection").value;
+      await generateQRCode(encrypted, qrSize, errorCorrection);
     }
 
     // AES Encryption using Web Crypto API
@@ -444,6 +470,21 @@
   <button onclick="encodeAndGenerateQR()">🔐 Encode to Base64 + QR</button>
   <h3>Base64 Output:</h3>
   <pre id="outputBase64"></pre>
+
+  <!-- Add options for QR code generation -->
+  <label for="errorCorrection">Error Correction Level:</label>
+  <select id="errorCorrection">
+    <option value="L">L (Low ~7%)</option>
+    <option value="M" selected>M (Medium ~15%)</option>
+    <option value="Q">Q (Quartile ~25%)</option>
+    <option value="H">H (High ~30%)</option>
+  </select>
+
+  <label for="qrSize">QR Code Size:</label>
+  <input id="qrSize" type="number" value="256" min="128" max="512"> <!-- Size in pixels -->
+
+  <button onclick="handleGenerateQRCode()">Generate QR Code</button>
+
   <div id="qrcode"></div>
 
   <script>
