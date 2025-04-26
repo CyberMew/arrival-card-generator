@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Arrival Card QR Decoder & Editor (Fixed)</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     body {
@@ -167,53 +166,49 @@
       const input = document.getElementById("inputBase64").value.trim();
       if (!input) return alert("Please enter a base64 string.");
       try {
-        const key = CryptoJS.enc.Utf8.parse("sdgdfjytyjkueesh");
-        const iv = CryptoJS.enc.Utf8.parse("fhgtdytestgrjrtd");
-        const encryptedHex = CryptoJS.enc.Base64.parse(input);
-        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: encryptedHex });
-        const decrypted = CryptoJS.AES.decrypt(cipherParams, key, {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7
-        }).toString(CryptoJS.enc.Utf8);
-        const data = JSON.parse(decrypted);
-        debugEl.textContent = JSON.stringify(data, null, 2);
+        const key = "sdgdfjytyjkueesh";
+        const iv = "fhgtdytestgrjrtd";
+        decryptAES(input, key, iv).then(decrypted => {
+          const data = JSON.parse(decrypted);
+          debugEl.textContent = JSON.stringify(data, null, 2);
 
-        // Iterate over the keys in the decoded data
-        Object.keys(data).forEach(key => {
-          const field = document.querySelector(`[name="${key}"]`);
-          if (!field) return;
+          // Iterate over the keys in the decoded data
+          Object.keys(data).forEach(key => {
+            const field = document.querySelector(`[name="${key}"]`);
+            if (!field) return;
 
-          if (field.type === "radio") {
-            const radio = document.querySelector(`[name="${key}"][value="${data[key]}"]`);
-            if (radio) {
-              radio.checked = true;
-              radio.parentElement.classList.add("highlight");
-              setTimeout(() => { radio.parentElement.classList.remove("highlight"); }, 1500);
+            if (field.type === "radio") {
+              const radio = document.querySelector(`[name="${key}"][value="${data[key]}"]`);
+              if (radio) {
+                radio.checked = true;
+                radio.parentElement.classList.add("highlight");
+                setTimeout(() => { radio.parentElement.classList.remove("highlight"); }, 1500);
+              }
+            } else {
+              field.value = data[key];
+              field.classList.add("highlight");
+              setTimeout(() => { field.classList.remove("highlight"); }, 1500);
             }
-          } else {
-            field.value = data[key];
-            field.classList.add("highlight");
-            setTimeout(() => { field.classList.remove("highlight"); }, 1500);
+            toggleConditional(key);
+          });
+
+          // Handle visaFree logic based on qzhm
+          const visaNo = data.qzhm; // Check if qzhm (Visa No.) is provided
+          const visaFreeValue = visaNo ? "0" : "1"; // "0" for No, "1" for Yes
+          const visaFreeRadio = document.querySelector(`[name="visaFree"][value="${visaFreeValue}"]`);
+          if (visaFreeRadio) {
+            visaFreeRadio.checked = true;
+            toggleVisaNo(); // Ensure the Visa No. field visibility is updated
           }
-          toggleConditional(key);
         });
 
-        // Handle visaFree logic based on qzhm
-        const visaNo = data.qzhm; // Check if qzhm (Visa No.) is provided
-        const visaFreeValue = visaNo ? "0" : "1"; // "0" for No, "1" for Yes
-        const visaFreeRadio = document.querySelector(`[name="visaFree"][value="${visaFreeValue}"]`);
-        if (visaFreeRadio) {
-          visaFreeRadio.checked = true;
-          toggleVisaNo(); // Ensure the Visa No. field visibility is updated
-        }
       } catch (err) {
         debugEl.textContent = "⚠ Failed to decode or parse Base64 string.";
         alert("Failed to decode or parse base64 string.");
       }
     }
 
-    function encodeAndGenerateQR() {
+    async function encodeAndGenerateQR() {
       const formData = {};
       document.querySelectorAll("#arrivalForm input, #arrivalForm select, #arrivalForm textarea").forEach(el => {
         if ((el.type === "radio" || el.type === "checkbox") && !el.checked) return;
@@ -245,17 +240,9 @@
 
       // Encode JSON
       const jsonString = JSON.stringify(orderedFormData);
-      const key = CryptoJS.enc.Utf8.parse("sdgdfjytyjkueesh");
-      const iv = CryptoJS.enc.Utf8.parse("fhgtdytestgrjrtd");
-      const encrypted = CryptoJS.AES.encrypt(
-        CryptoJS.enc.Utf8.parse(jsonString),
-        key,
-        {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7
-        }
-      ).ciphertext.toString(CryptoJS.enc.Base64);
+      const key = "sdgdfjytyjkueesh";
+      const iv = "fhgtdytestgrjrtd";
+      const encrypted = await encryptAES(jsonString, key, iv);
 
       // Display Base64 and QR Code
       document.getElementById("outputBase64").textContent = encrypted;
@@ -273,6 +260,44 @@
       div.id = "qrcode";
       document.body.appendChild(div);
       return div;
+    }
+
+    // AES Encryption using Web Crypto API
+    async function encryptAES(plainText, key, iv) {
+      const encoder = new TextEncoder();
+      const encodedText = encoder.encode(plainText);
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(key),
+        { name: "AES-CBC" },
+        false,
+        ["encrypt"]
+      );
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-CBC", iv: encoder.encode(iv) },
+        cryptoKey,
+        encodedText
+      );
+      return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    }
+
+    // AES Decryption using Web Crypto API
+    async function decryptAES(encryptedBase64, key, iv) {
+      const decoder = new TextDecoder();
+      const encryptedBytes = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(key),
+        { name: "AES-CBC" },
+        false,
+        ["decrypt"]
+      );
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-CBC", iv: new TextEncoder().encode(iv) },
+        cryptoKey,
+        encryptedBytes
+      );
+      return decoder.decode(decrypted);
     }
   </script>
 </head>
