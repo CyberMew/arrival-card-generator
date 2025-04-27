@@ -1,10 +1,18 @@
 # arrival-card-generator
 
-Basically this tries to be the standalone version of https://www.singlewindow.sh.cn/hj/arrval, because that submits your data to their backend which might seem suspicious, and it is unknown to me if this is a legit site or not.
+Basically this tries to be the standalone version of https://www.singlewindow.sh.cn/hj/arrval, because that website submits your data to their backend which might seem suspicious, and it is unknown to me if this is a legit official site or not.
 
 # Arrival Card QR Decoder & Editor
 
 This project is a web-based tool for decoding, editing, and generating QR codes for arrival card information. It allows users to input encrypted Base64 strings, decode them into a form, edit the data, and re-encode it into a QR code.
+
+You can download the HTML file, open it in Chrome, and it should run locally. All codes are created using Copilot.
+
+### Disclaimer
+
+This tool is **not an official arrival form** and is not affiliated with any government or immigration authority. It is a standalone utility designed to help users decode, edit, and generate QR codes for arrival card information. 
+
+Please ensure that you verify the accuracy of the information and consult official sources or authorities for any official requirements.
 
 ## Features
 
@@ -18,7 +26,7 @@ This project is a web-based tool for decoding, editing, and generating QR codes 
 
 ## Access the Tool
 
-You can access the tool online at:  
+You can access the tool/form online at:  
 [https://cybermew.github.io/arrival-card-generator](https://cybermew.github.io/arrival-card-generator)
 
 ## File Structure
@@ -94,12 +102,12 @@ Below is a list of the input keys used in the form, along with their Hanyu Pinyi
 
 ## Dependencies
 
-- **CryptoJS**: Used for AES encryption and decryption.
-- **QRCode.js**: Used for generating QR codes.
+- ~**CryptoJS**: Used for AES encryption and decryption.~ - This is now done natively in browser.
+- **QRCode.js**: Used for generating QR codes. Feel free to remove the script (since it is 3rd party dependency) and copy the generated Base64 string elsewhere to generate the QR code.
 
 ## Multi-language Support
 
-The form supports the following languages:
+The form currently supports the following languages:
 - English
 - Japanese
 - Korean
