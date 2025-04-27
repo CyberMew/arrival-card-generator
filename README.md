@@ -1,6 +1,6 @@
 # arrival-card-generator
-Basically this tries to be the standalone version of https://www.singlewindow.sh.cn/hj/arrval, because that submits your data to their backend which might seems suspicious, and it is unknown to me if this is a legit site or not.
 
+Basically this tries to be the standalone version of https://www.singlewindow.sh.cn/hj/arrval, because that submits your data to their backend which might seem suspicious, and it is unknown to me if this is a legit site or not.
 
 # Arrival Card QR Decoder & Editor
 
@@ -42,7 +42,7 @@ You can access the tool online at:
 ### CSS
 - Styles are included for form layout, validation, and dynamic effects like highlighting updated fields.
 
-## How to Use
+## Usage
 
 1. **Decode Data**:
    - Paste an encrypted Base64 string into the "Paste Encrypted Base64 String" textarea.
@@ -56,6 +56,34 @@ You can access the tool online at:
 
 4. **Change Language**:
    - Use the language selector at the top of the form to switch between supported languages.
+
+## Input Keys and Their Meanings
+
+Below is a list of the input keys used in the form, along with their Hanyu Pinyin, Chinese words, and English meanings:
+
+| **Key**   | **Hanyu Pinyin**       | **Chinese Word**       | **English Meaning**                     |
+|-----------|------------------------|------------------------|-----------------------------------------|
+| `x`       | **Xìng**               | 姓                    | Surname                                 |
+| `m`       | **Míng**               | 名                    | Given Name                              |
+| `xb`      | **Xìng Bié**           | 性别                  | Gender/Sex                              |
+| `zwxm`    | **Zhōng Wén Xìng Míng**| 中文姓名              | Chinese Name                            |
+| `gj`      | **Guó Jí**             | 国籍                  | Nationality                             |
+| `csrq`    | **Chū Shēng Rì Qī**    | 出生日期              | Date of Birth                           |
+| `lxzjhm`  | **Lǚ Xíng Zhèng Jiàn Hào Mǎ** | 旅行证件号码 | Passport/Travel Document Number         |
+| `qzhm`    | **Qiān Zhèng Hào Mǎ**  | 签证号码              | Visa Number                             |
+| `ddhb`    | **Dǐ Dá Háng Bān**     | 抵达航班              | Arrival Flight                          |
+| `brdhhm`  | **Běn Rén Diàn Huà Hào Mǎ** | 本人电话号码      | Personal Phone Number                   |
+| `zhjt`    | **Zài Huá Jīng Tíng**  | 在华经停              | Cities Intended to Visit in China       |
+| `zhzz`    | **Zài Huá Zhù Zhǐ**    | 在华住址              | Detailed Address or Hotel Name in China |
+| `zhzzcs`  | **Zài Huá Zhù Zhǐ Chéng Shì** | 在华住址城市    | City in China                           |
+| `rjsy`    | **Rù Jìng Shì Yóu**    | 入境事由              | Purpose of Entry                        |
+| `cjsj`    | **Chū Jìng Shí Jiān**  | 出境时间              | Date of Departure                       |
+| `cjhb`    | **Chū Jìng Háng Bān**  | 出境航班              | Departure Flight/Train/Ship Number      |
+| `yqrmc`   | **Yāo Qǐng Rén Míng Chēng** | 邀请人名称        | Name of Inviter/Reception Unit          |
+| `yqrlxfs` | **Yāo Qǐng Rén Lián Xì Fāng Shì** | 邀请人联系方式 | Contact Information of Inviter          |
+| `cqgj`    | **Céng Qù Guó Jiā**    | 曾去国家              | Countries Visited                       |
+| `lb`      | **Lèi Bié**            | 类别                  | Category                                |
+| `t`       | **Shí Jiān Cuò**       | 时间戳                | Timestamp                               |
 
 ## Notes
 
