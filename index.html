@@ -115,6 +115,15 @@
       gap: 0.5rem;
       /* Add spacing between the radio button and label text */
     }
+
+    div {
+      display: flow-root;
+    }
+
+    p {
+      /* default is 16 but too much */
+      margin: 5px;
+    }
   </style>
   <script>
     function toggleConditional(key) {
@@ -330,6 +339,20 @@
 
 <body>
   <h2>🛂 Arrival Card QR Decoder & Editor</h2>
+  <div style="margin-top: 10px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 5px;">
+    <p>
+      This tool is a standalone version of the arrival card generator. It allows you to decode, edit, and generate QR codes for arrival card information. 
+      For more details about the JSON keys and their meanings, please refer to the 
+      <a href="https://github.com/cybermew/arrival-card-generator#input-keys-and-their-meanings" target="_blank">README</a>.
+    </p>
+    <p>
+      If you encounter any issues or have suggestions for improvements, please visit the 
+      <a href="https://github.com/cybermew/arrival-card-generator" target="_blank">GitHub project</a>.
+    </p>
+    <p style="color: red; font-weight: bold;">
+      Disclaimer: This tool is <strong>not an official arrival form</strong> and is not affiliated with any government or immigration authority. Please verify all information with official sources.
+    </p>
+  </div>
   <label for="inputBase64">Paste Encrypted Base64 String:</label>
   <textarea id="inputBase64" rows="5" cols="80"></textarea><br>
   <button onclick="decodeAndFill()">🔓 Decode & Fill Form</button>
