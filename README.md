@@ -100,16 +100,28 @@ Below is a list of the input keys used in the form, along with their Hanyu Pinyi
 
 ## Verification Against the Official Site
 
-The output of this tool has been verified to match `singlewindow.sh.cn/hj/arrval` exactly, by reverse-engineering the live site and submitting a controlled test entry:
+These findings come from reverse-engineering the live `singlewindow.sh.cn/hj/arrval` site and decoding a handful of controlled test submissions. The backend is closed-source, so the server-side observations below describe **only the cases we tested** — they are not guarantees, and untested inputs or combinations could behave differently.
 
-- **Encryption is byte-identical.** The official site uses CryptoJS `AES.encrypt(JSON.stringify(data), key, {iv, mode: CBC, padding: Pkcs7})` with key `sdgdfjytyjkueesh` and IV `fhgtdytestgrjrtd` (both 16-byte UTF-8 → AES-128). This tool's native Web Crypto output is the same Base64 string for the same input.
-- **Payload structure matches.** Decrypting a real submission confirms the exact field names, key order, value formats (`xb` = `Male`/`Female`, `rjsy` = Chinese label, dates = `YYYY-MM-DD`, `check*`/`lb` = numbers), and conditional blanking (`qzhm` empty when visa-free; `cjsj`/`cjhb` empty when no departure ticket).
-- **The QR encodes the encrypted string verbatim.** On the official site, the form POSTs `{data: <encrypted>}` to `/qrCode/generate`, which returns a server-rendered QR **PNG**. Decoding that PNG yields exactly the encrypted Base64 that was submitted — so generating the QR locally from the same string (as this tool does) produces an identical QR.
-- **Validation is presence-only.** The official form enforces only *required* checks — there are **no character-set (e.g. ASCII/Cyrillic) or length restrictions** client-side. Any character-set rules are applied server-side / at the border. The form hint asks you to "complete clearly in Chinese or English."
+- **Encryption is byte-identical.** The official site uses CryptoJS `AES.encrypt(JSON.stringify(data), key, {iv, mode: CBC, padding: Pkcs7})` with key `sdgdfjytyjkueesh` and IV `fhgtdytestgrjrtd` (both 16-byte UTF-8 → AES-128). This tool's native Web Crypto output produced the same Base64 string for the same input in our tests. (AES-CBC is deterministic for a fixed key/IV, so this should hold generally.)
+- **Payload structure matches.** Decrypting real submissions confirmed the exact field names, key order, value formats (`xb` = `Male`/`Female`, `rjsy` = Chinese label, dates = `YYYY-MM-DD`, `check*`/`lb` = numbers), and the official site's conditional blanking (`qzhm` empty when visa-free; `cjsj`/`cjhb` empty when no departure ticket). Note the official site does **not** blank the contact fields (`yqrmc`/`yqrlxfs`) even when "No contact" is selected; this tool blanks them on purpose for consistency.
+- **The QR encoded the submitted string verbatim, in every case we tried.** On the official site, the form POSTs `{data: <encrypted>}` to `/qrCode/generate`, which returns a server-rendered QR **PNG**. In our tests the PNG decoded back to exactly the string we sent — including arbitrary non-ciphertext (e.g. `hello world`), which the server still rendered as-is. This is consistent with the server acting as a pass-through QR-image renderer that does not decrypt or validate the payload, but we cannot rule out untested edge cases. Because the QR content appears to equal the submitted string, generating the QR locally (as this tool does) should yield an identical QR.
+- **Client-side validation is presence-only.** The official form's client-side rules enforce only *required* checks — we found **no character-set (e.g. ASCII/Cyrillic) or length restrictions** in the form bundle. Any such rules would be applied server-side / at the border, which we did not test. The form hint asks you to "complete clearly in Chinese or English."
+
+### Tests we ran
+
+Each test below was a real submission on the official site; we then **decoded the resulting QR image** (not just the request) and decrypted it to see exactly what it contained:
+
+1. **Standard entry** (visa-free, no departure ticket, no contact) → the QR decoded back to exactly our submitted data; no changes by the server.
+2. **Visa number entered, then switched to "Visa-Free = Yes"** → the visa number was dropped (`qzhm` empty) in the final QR.
+3. **Departure date/flight entered, then switched to "ticket booked = No"** → both were dropped (`cjsj`/`cjhb` empty) in the final QR.
+4. **Contact name/address entered, then switched to "no contact in China"** → the official site **still included them** in the QR. (This tool deliberately blanks them instead — see above.)
+5. **Arbitrary non-encrypted strings** (e.g. `hello world`, raw JSON, special characters) sent to the QR endpoint → each came back as a QR of that exact text. In the cases we tried, the server rendered whatever string it was given without decrypting or validating it.
+
+These are the specific cases we checked — they cover the conditional fields and the question of server-side tampering, but they are not exhaustive.
 
 ## Notes
 
-- Output has been verified to match the official site (see above), but **use at your own risk** and always confirm details against official sources.
+- Output matched the official site in the test cases we tried (see above) — this is **not a guarantee** of correctness for all inputs. **Use at your own risk** and always confirm details against official sources.
 - Feel free to inspect the code and suggest or implement improvements. Contributions are welcome!
 - **Disclaimer**: This tool is provided as-is, and no one is responsible if it does not work as expected or causes any issues. Use it at your own risk.
 - **Privacy**: The tool does not submit any data to a server. All operations are performed locally in your browser, ensuring your data remains private.

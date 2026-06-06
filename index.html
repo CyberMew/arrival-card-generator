@@ -224,11 +224,18 @@
       formData["check3"] = parseInt(formData["check3"], 10);
       formData["lb"] = parseInt(formData["lb"], 10);
 
-      // Mirror the official site: clear fields that don't apply given the check flags.
+      // "What you see is what you send": clear fields whose toggle is off so the QR
+      // never carries hidden data. check1/check2 match the official site (it blanks these
+      // too); check3 intentionally also blanks the contact fields to stay consistent —
+      // the official site leaks them, but sending contact info under "No contact" is wrong.
       if (formData["check1"] === 1) formData["qzhm"] = "";   // visa-free -> no visa number
       if (formData["check2"] !== 1) {                         // departure ticket not booked
         formData["cjsj"] = "";
         formData["cjhb"] = "";
+      }
+      if (formData["check3"] !== 1) {                         // no contact in China
+        formData["yqrmc"] = "";
+        formData["yqrlxfs"] = "";
       }
 
       // Preserve field order
