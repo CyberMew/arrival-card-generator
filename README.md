@@ -73,7 +73,7 @@ Below is a list of the input keys used in the form, along with their Hanyu Pinyi
 |-----------|------------------------|------------------------|-----------------------------------------|
 | `x`       | **Xìng**               | 姓                    | Surname                                 |
 | `m`       | **Míng**               | 名                    | Given Name                              |
-| `xb`      | **Xìng Bié**           | 性别                  | Gender/Sex                              |
+| `xb`      | **Xìng Bié**           | 性别                  | Gender/Sex — value is the string `Male` or `Female` |
 | `zwxm`    | **Zhōng Wén Xìng Míng**| 中文姓名              | Chinese Name                            |
 | `gj`      | **Guó Jí**             | 国籍                  | Nationality                             |
 | `csrq`    | **Chū Shēng Rì Qī**    | 出生日期              | Date of Birth                           |
@@ -84,18 +84,32 @@ Below is a list of the input keys used in the form, along with their Hanyu Pinyi
 | `zhjt`    | **Zài Huá Jīng Tíng**  | 在华经停              | Cities Intended to Visit in China       |
 | `zhzz`    | **Zài Huá Zhù Zhǐ**    | 在华住址              | Detailed Address or Hotel Name in China |
 | `zhzzcs`  | **Zài Huá Zhù Zhǐ Chéng Shì** | 在华住址城市    | City in China                           |
-| `rjsy`    | **Rù Jìng Shì Yóu**    | 入境事由              | Purpose of Entry                        |
+| `rjsy`    | **Rù Jìng Shì Yóu**    | 入境事由              | Purpose of Entry — value is one of the Chinese labels: `外交/公务`, `访问/商务`, `定居`, `工作`, `学习`, `旅游`, `探亲`, `过境`, `其他` |
 | `cjsj`    | **Chū Jìng Shí Jiān**  | 出境时间              | Date of Departure                       |
 | `cjhb`    | **Chū Jìng Háng Bān**  | 出境航班              | Departure Flight/Train/Ship Number      |
 | `yqrmc`   | **Yāo Qǐng Rén Míng Chēng** | 邀请人名称        | Name of Inviter/Reception Unit          |
 | `yqrlxfs` | **Yāo Qǐng Rén Lián Xì Fāng Shì** | 邀请人联系方式 | Contact Information of Inviter          |
 | `cqgj`    | **Céng Qù Guó Jiā**    | 曾去国家              | Countries Visited                       |
-| `lb`      | **Lèi Bié**            | 类别                  | Category                                |
-| `t`       | **Shí Jiān Cuò**       | 时间戳                | Timestamp                               |
+| `lb`      | **Lèi Bié**            | 类别                  | Category — constant `1` for the arrival card |
+| `t`       | **Shí Jiān Cuò**       | 时间戳                | Timestamp (epoch milliseconds)          |
+| `check1`  | —                      | 免签                  | Visa-Free flag: `1` = Yes (visa-free), `0` = No. When `1`, `qzhm` is blank |
+| `check2`  | —                      | 是否预订离境票        | Departure ticket booked: `1` = Yes, `0` = No. When `0`, `cjsj`/`cjhb` are blank |
+| `check3`  | —                      | 是否有中国联系人      | Has contact/inviter in China: `1` = Yes, `0` = No |
+
+> All `check*` values and `lb` are JSON **numbers** (not strings). Dates (`csrq`, `cjsj`) use `YYYY-MM-DD`. The encrypted payload preserves this exact key order: `x, m, xb, gj, csrq, zwxm, lxzjhm, check1, qzhm, ddhb, brdhhm, zhjt, zhzz, zhzzcs, rjsy, check2, cjsj, cjhb, check3, yqrmc, yqrlxfs, cqgj, lb, t`.
+
+## Verification Against the Official Site
+
+The output of this tool has been verified to match `singlewindow.sh.cn/hj/arrval` exactly, by reverse-engineering the live site and submitting a controlled test entry:
+
+- **Encryption is byte-identical.** The official site uses CryptoJS `AES.encrypt(JSON.stringify(data), key, {iv, mode: CBC, padding: Pkcs7})` with key `sdgdfjytyjkueesh` and IV `fhgtdytestgrjrtd` (both 16-byte UTF-8 → AES-128). This tool's native Web Crypto output is the same Base64 string for the same input.
+- **Payload structure matches.** Decrypting a real submission confirms the exact field names, key order, value formats (`xb` = `Male`/`Female`, `rjsy` = Chinese label, dates = `YYYY-MM-DD`, `check*`/`lb` = numbers), and conditional blanking (`qzhm` empty when visa-free; `cjsj`/`cjhb` empty when no departure ticket).
+- **The QR encodes the encrypted string verbatim.** On the official site, the form POSTs `{data: <encrypted>}` to `/qrCode/generate`, which returns a server-rendered QR **PNG**. Decoding that PNG yields exactly the encrypted Base64 that was submitted — so generating the QR locally from the same string (as this tool does) produces an identical QR.
+- **Validation is presence-only.** The official form enforces only *required* checks — there are **no character-set (e.g. ASCII/Cyrillic) or length restrictions** client-side. Any character-set rules are applied server-side / at the border. The form hint asks you to "complete clearly in Chinese or English."
 
 ## Notes
 
-- This project has **not been tested yet** to confirm if it works as intended. Please proceed with caution.
+- Output has been verified to match the official site (see above), but **use at your own risk** and always confirm details against official sources.
 - Feel free to inspect the code and suggest or implement improvements. Contributions are welcome!
 - **Disclaimer**: This tool is provided as-is, and no one is responsible if it does not work as expected or causes any issues. Use it at your own risk.
 - **Privacy**: The tool does not submit any data to a server. All operations are performed locally in your browser, ensuring your data remains private.

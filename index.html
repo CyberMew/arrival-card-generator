@@ -126,6 +126,7 @@
     }
   </style>
   <script>
+    // Toggle conditional sections to mirror the official site's check1/check2/check3 semantics.
     function toggleConditional(key) {
       const show = (id, visible) => {
         const el = document.getElementById(`cond-${id}`);
@@ -139,19 +140,12 @@
       } else {
         value = document.querySelector(`[name='${key}']`)?.value;
       }
-      if (key === 'visaFree') show('visaFree', value === '0');
-      if (key === 'check1') show('check1', value === '1');
+      // check1 = Visa-Free (1 = Yes). Visa No. (qzhm) is only relevant when NOT visa-free.
+      if (key === 'check1') show('check1', value === '0');
+      // check2 = Departure ticket booked (1 = Yes). Departure date/flight shown when Yes.
       if (key === 'check2') show('check2', value === '1');
-    }
-
-    function toggleVisaNo() {
-      const visaFreeValue = document.querySelector('input[name="visaFree"]:checked')?.value;
-      const visaNoContainer = document.getElementById("visaNoContainer");
-      if (visaFreeValue === "0") {
-        visaNoContainer.style.display = "block"; // Show Visa No. field
-      } else {
-        visaNoContainer.style.display = "none"; // Hide Visa No. field
-      }
+      // check3 = Has contact in China (1 = Yes). Contact details shown when Yes.
+      if (key === 'check3') show('check3', value === '1');
     }
 
     function handleFormSubmit(event) {
@@ -201,14 +195,9 @@
             toggleConditional(key);
           });
 
-          // Handle visaFree logic based on qzhm
-          const visaNo = data.qzhm; // Check if qzhm (Visa No.) is provided
-          const visaFreeValue = visaNo ? "0" : "1"; // "0" for No, "1" for Yes
-          const visaFreeRadio = document.querySelector(`[name="visaFree"][value="${visaFreeValue}"]`);
-          if (visaFreeRadio) {
-            visaFreeRadio.checked = true;
-            toggleVisaNo(); // Ensure the Visa No. field visibility is updated
-          }
+          // Re-evaluate conditional sections from the decoded check flags
+          // (check1 = visa-free, check2 = departure ticket, check3 = contact in China).
+          ["check1", "check2", "check3"].forEach(toggleConditional);
         });
 
       } catch (err) {
@@ -234,6 +223,13 @@
       formData["check2"] = parseInt(formData["check2"], 10);
       formData["check3"] = parseInt(formData["check3"], 10);
       formData["lb"] = parseInt(formData["lb"], 10);
+
+      // Mirror the official site: clear fields that don't apply given the check flags.
+      if (formData["check1"] === 1) formData["qzhm"] = "";   // visa-free -> no visa number
+      if (formData["check2"] !== 1) {                         // departure ticket not booked
+        formData["cjsj"] = "";
+        formData["cjhb"] = "";
+      }
 
       // Preserve field order
       const orderedKeys = [
@@ -397,17 +393,17 @@
     <label class="required">护照号码 / <span data-translate="passportNo">Passport No</span> (lxzjhm): <input name="lxzjhm"
         required></label>
 
-    <!-- Visa-Free Radio Buttons -->
-    <label class="required">免签 / <span data-translate="visaFree">Visa-Free</span>:</label>
+    <!-- Visa-Free (check1): Yes=1, No=0. Maps to official site's VisaFree -> check1 -->
+    <label class="required">免签 / <span data-translate="visaFree">Visa-Free</span> (check1):</label>
     <div class="radio-inline">
-      <label><input type="radio" name="visaFree" value="1" onclick="toggleVisaNo()"> <span
+      <label><input type="radio" name="check1" value="1" onclick="toggleConditional('check1')"> <span
           data-translate="yes">Yes</span></label>
-      <label><input type="radio" name="visaFree" value="0" onclick="toggleVisaNo()"> <span
+      <label><input type="radio" name="check1" value="0" onclick="toggleConditional('check1')"> <span
           data-translate="no">No</span></label>
     </div>
 
-    <!-- Visa No. Field -->
-    <div id="visaNoContainer" style="display: none;">
+    <!-- Visa No. shown only when NOT visa-free (check1 = 0) -->
+    <div id="cond-check1" style="display: none;">
       <label>签证号码 / <span data-translate="visaNo">Visa No</span> (qzhm): <input name="qzhm"></label>
     </div>
 
@@ -415,22 +411,25 @@
     <h3>🚪 Departure Information</h3>
     <small>Provide details about your departure from China, including ticket status and transport mode.</small>
     <label class="required">是否已预订离境票 / <span data-translate="departureTicket">Departure Ticket Booked</span>
-      (check1):</label>
+      (check2):</label>
     <div class="radio-inline">
-      <label><input type="radio" name="check1" value="1"> <span data-translate="bookedTheTicketYes">Yes</span></label>
-      <label><input type="radio" name="check1" value="0"> <span data-translate="bookedTheTicketNo">No</span></label>
+      <label><input type="radio" name="check2" value="1" onclick="toggleConditional('check2')"> <span data-translate="bookedTheTicketYes">Yes</span></label>
+      <label><input type="radio" name="check2" value="0" onclick="toggleConditional('check2')"> <span data-translate="bookedTheTicketNo">No</span></label>
     </div>
-    <label>出境时间 / <span data-translate="dateOfDeparture">Date of departure</span> (cjsj): <input name="cjsj"
-        type="date"></label>
-    <label>出境航班/车次/船名 / <span data-translate="departureFlight">Departure Flight No./Train No./Vessel Name</span> (cjhb):
-      <input name="cjhb"></label>
+    <!-- Departure date/flight shown only when ticket booked (check2 = 1) -->
+    <div id="cond-check2" style="display: none;">
+      <label>出境时间 / <span data-translate="dateOfDeparture">Date of departure</span> (cjsj): <input name="cjsj"
+          type="date"></label>
+      <label>出境航班/车次/船名 / <span data-translate="departureFlight">Departure Flight No./Train No./Vessel Name</span> (cjhb):
+        <input name="cjhb"></label>
+    </div>
 
     <!-- 🛬 Arrival Information -->
     <h3>🛬 Arrival Information</h3>
     <small>Enter details about your arrival in China, including transport mode and arrival location.</small>
-    <label>抵达航班 / <span data-translate="arrivalFlight">Arrival Flight</span> (ddhb): <input name="ddhb"></label>
-    <label>在华经停和目的城市 / <span data-translate="cities">Cities intended to visit in China</span> (zhjt): <input
-        name="zhjt"></label>
+    <label class="required">抵达航班 / <span data-translate="arrivalFlight">Arrival Flight</span> (ddhb): <input name="ddhb" required></label>
+    <label class="required">在华经停和目的城市 / <span data-translate="cities">Cities intended to visit in China</span> (zhjt): <input
+        name="zhjt" required></label>
     <label class="required">在华详细地址或旅馆名称 / <span data-translate="detailedAddress">Detailed address or hotel name while in
         China</span> (zhzz): <input name="zhzz" required></label>
     <label class="required">市 / <span data-translate="city">City</span> (zhzzcs): <input name="zhzzcs" required></label>
@@ -440,14 +439,11 @@
     <small>Please select your purpose of travel as shown on your visa or ticket.</small>
     <label>入境事由 / <span data-translate="purpose">Purpose of this trip</span> (rjsy):</label>
     <div class="radio-inline">
-      <label><input type="radio" name="rjsy" value="外交/公务"> 外交/公務 / <span
-          data-translate="diplomacy">Diplomacy/Official</span></label>
-      <label><input type="radio" name="rjsy" value="访问"> 访问 / <span
-          data-translate="visiting">Visiting/Business</span></label>
-      <label><input type="radio" name="rjsy" value="永久居留"> 永久居留 / <span data-translate="permanentResidence">Permanent
-          Residence</span></label>
-      <label><input type="radio" name="rjsy" value="就业"> 就业 / <span
-          data-translate="employment">Employment</span></label>
+      <!-- Values must be the exact Chinese labels the official site submits (verified by decrypting a real submission) -->
+      <label><input type="radio" name="rjsy" value="外交/公务"> 外交/公务 / <span data-translate="diplomacy">Diplomacy/Official</span></label>
+      <label><input type="radio" name="rjsy" value="访问/商务"> 访问/商务 / <span data-translate="visiting">Visiting/Business</span></label>
+      <label><input type="radio" name="rjsy" value="定居"> 定居 / <span data-translate="permanentResidence">Permanent Residence</span></label>
+      <label><input type="radio" name="rjsy" value="工作"> 工作 / <span data-translate="employment">Employment</span></label>
       <label><input type="radio" name="rjsy" value="学习"> 学习 / <span data-translate="study">Study</span></label>
       <label><input type="radio" name="rjsy" value="旅游"> 旅游 / <span data-translate="tourism">Tourism</span></label>
       <label><input type="radio" name="rjsy" value="探亲"> 探亲 / <span data-translate="visitingRelatives">Visiting
@@ -460,30 +456,26 @@
     <h3>👥 Contact in China</h3>
     <small>Provide details of your contact person in China, if applicable.</small>
     <label class="required">是否有中国联系人 / <span data-translate="contactsInChina">Have Contact in China</span>
-      (check2):</label>
-    <div class="radio-inline">
-      <label><input type="radio" name="check2" value="1"> 是 / <span
-          data-translate="contactsInChinaYes">Yes</span></label>
-      <label><input type="radio" name="check2" value="0"> 否 / <span data-translate="contactsInChinaNo">No</span></label>
-    </div>
-    <label>联系人姓名 / <span data-translate="nameOfChineseInvitingUnit">Name of Chinese Reception Unit or Contact</span>
-      (yqrmc): <input name="yqrmc"></label>
-    <label>联系人地址 / <span data-translate="addressOfChineseInvitingUnit">Address of Contact of the Chinese Contact</span>
-      (yqrlxfs): <input name="yqrlxfs"></label>
-    <label class="required">接待单位确认 / <span data-translate="receptionConfirmed">Reception Unit Confirmed</span>
       (check3):</label>
     <div class="radio-inline">
-      <label><input type="radio" name="check3" value="1"> 是 / <span
-          data-translate="bookedTheTicketYes">Yes</span></label>
-      <label><input type="radio" name="check3" value="0"> 否 / <span data-translate="bookedTheTicketNo">No</span></label>
+      <label><input type="radio" name="check3" value="1" onclick="toggleConditional('check3')"> 是 / <span
+          data-translate="contactsInChinaYes">Yes</span></label>
+      <label><input type="radio" name="check3" value="0" onclick="toggleConditional('check3')"> 否 / <span data-translate="contactsInChinaNo">No</span></label>
+    </div>
+    <!-- Contact details shown only when there is a contact in China (check3 = 1) -->
+    <div id="cond-check3" style="display: none;">
+      <label>联系人姓名 / <span data-translate="nameOfChineseInvitingUnit">Name of Chinese Reception Unit or Contact</span>
+        (yqrmc): <input name="yqrmc"></label>
+      <label>联系人地址 / <span data-translate="addressOfChineseInvitingUnit">Address of Contact of the Chinese Contact</span>
+        (yqrlxfs): <input name="yqrlxfs"></label>
     </div>
 
     <!-- 🌎 Travel History -->
     <h3>🌎 Travel History</h3>
     <small>List the countries you have visited recently.</small>
-    <label>您过去两年曾去过哪些国家（地区） / <span data-translate="countriesVisited">Countries Visited</span> (cqgj):</label>
+    <label class="required">您过去两年曾去过哪些国家（地区） / <span data-translate="countriesVisited">Countries Visited</span> (cqgj):</label>
     <div>
-      <textarea name="cqgj" rows="3" cols="40"></textarea>
+      <textarea name="cqgj" rows="3" cols="40" required></textarea>
     </div>
 
     <input type="hidden" name="lb" value="1">
